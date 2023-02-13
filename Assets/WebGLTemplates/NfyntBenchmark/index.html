@@ -1,0 +1,183 @@
+<!-- NFYNT -->
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>{{{ PRODUCT_NAME }}} | NFYNT</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+#if SHOW_DIAGNOSTICS
+    <link rel="stylesheet" href="<<<TemplateData/diagnostics.css>>>">
+    <script src="<<<TemplateData/diagnostics.js>>>"></script>
+#endif
+    <!-- script src="TemplateData/UnityProgress.js"></script -->  
+    <!-- script src="TemplateData/UnityLoader.js"></script -->
+    <script src="TemplateData/Timer.js"></script>
+    <script src="TemplateData/UI.js"></script>
+    <script src="TemplateData/Stats.js"></script>
+    <script>
+      var timeToScreen = new Timer("Time to Screen");
+      var timeToInteractive = new Timer("Time to Interactive");
+      Stats.Loading.timers.push(timeToScreen, timeToInteractive);
+	<!-- Unity loader -->
+    </script>
+  </head>
+
+  <body class="{{{ SPLASH_SCREEN_STYLE.toLowerCase() }}}">
+    <div id="unity-container" class="unity-desktop">
+        <canvas id="unity-canvas" tabindex="-1"></canvas>
+    </div>
+    <div id="loading-cover" style="display:none;">
+        <div id="unity-loading-bar">
+            <div id="unity-progress-bar-empty" style="display: none;">
+                <div id="unity-progress-bar-full"></div>
+            </div>
+            <div class="spinner"></div>
+        </div>
+    </div>
+    <div id="unity-warning"> </div>
+	<div id="unity-footer">
+	<!--div position: absolute; left: 50%; top: 5%; -->
+#if SHOW_DIAGNOSTICS
+        <img id="diagnostics-icon" src="TemplateData/webmemd-icon.png">
+#endif
+	</div>
+    <script>
+    var startLoadingTime = Date.now();
+    var timeToLoad = 0;
+    var timeToStableFPS = 0;
+    var lastFrame = 0;
+    function SampleFrame() {
+      var curTime = Date.now();
+      if (timeToLoad == 0) {
+        timeToLoad = curTime - startLoadingTime;
+        timeToScreen.stop();
+        console.log ("Loading took " + timeToLoad + "ms");
+
+        // LoadingTimes.element.innerText += "\nTime to first frame: " + (curTime - LoadingTimes.wasmDownloadEndTime);
+      }
+      if (timeToStableFPS == 0) {
+        var frameTime = curTime - lastFrame;
+        if (frameTime < 55) {
+          timeToStableFPS = curTime - startLoadingTime - timeToLoad;
+          timeToInteractive.stop();
+          //Stats.Loading.term();
+          console.log ("Stabilizing took " + timeToStableFPS + "ms");
+          // LoadingTimes.element.innerText += "\nTime to interactive: " + (curTime - LoadingTimes.wasmDownloadEndTime);
+        }
+        lastFrame = curTime;
+      }      
+    }
+
+ 	const container = document.querySelector("#unity-container");
+        const canvas = document.querySelector("#unity-canvas");
+        const loadingCover = document.querySelector("#loading-cover");
+        const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
+        const progressBarFull = document.querySelector("#unity-progress-bar-full");
+        const spinner = document.querySelector('.spinner');
+        const warningBanner = document.querySelector("#unity-warning");
+#if SHOW_DIAGNOSTICS
+      const diagnostics_icon = document.getElementById("diagnostics-icon");
+#endif
+
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
+      function unityShowBanner(msg, type) {
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+        const buildUrl = "Build";
+        const loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+        const config = {
+            dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+            frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+#if USE_THREADS
+        workerUrl: buildUrl + "/{{{ WORKER_FILENAME }}}",
+#endif
+#if USE_WASM
+        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+#endif
+#if MEMORY_FILENAME
+        memoryUrl: buildUrl + "/{{{ MEMORY_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+        symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+#endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+            showBanner: unityShowBanner,
+        };
+
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            container.className = "unity-mobile";
+        canvas.className = "unity-mobile";
+            //config.matchWebGLToCanvasSize = false;    
+            //set devicePixelRatio=1; to avoid draining fillrate performance on mobile and override low DPI mode
+            config.devicePixelRatio = window.devicePixelRatio;
+#if SHOW_DIAGNOSTICS
+        // position the diagnostics icon in the corner on the canvas
+        diagnostics_icon.style.position = "fixed";
+        diagnostics_icon.style.bottom = "10px";
+        diagnostics_icon.style.right = "0px";
+        canvas.after(diagnostics_icon);
+#endif
+        }
+
+#if BACKGROUND_FILENAME
+      canvas.style.background = "url('" + buildUrl + "/{{{ BACKGROUND_FILENAME.replace(/'/g, '%27') }}}') center / cover";
+#endif
+        loadingCover.style.display = "";
+ 
+		//UI.init(document.body, function(){
+            //  Stats.Loading.term();
+            //});
+            //Stats.Loading.init(gameInstance.Module);
+
+        const script = document.createElement("script");
+        script.src = loaderUrl;
+        script.onload = () => { CreateUnityLoader();   };
+        document.body.appendChild(script);
+
+        function CreateUnityLoader() {
+
+          createUnityInstance(canvas, config, (progress) => {
+                spinner.style.display = "none";
+                progressBarEmpty.style.display = "";
+                progressBarFull.style.width = `${100 * progress}%`;
+            }).then((unityInstance) => {
+                loadingCover.style.display = "none";
+#if SHOW_DIAGNOSTICS
+                diagnostics_icon.onclick = () => {
+                  unityDiagnostics.openDiagnosticsDiv(unityInstance.GetMemoryInfo);
+                };
+#endif
+            }).catch((message) => {
+                alert(message);
+            });
+        }
+
+    </script>        
+  </body>
+</html>
